@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tower — ScatterX</title>
+  <link rel="stylesheet" href="../css/shared.css" />
+  <style>
+    .tower-wrap { display:flex; flex-direction:column; gap:6px; width:100%; max-width:440px; }
+    .floor { display:flex; gap:6px; width:100%; transition:all .3s; position:relative; }
+    .floor.locked { opacity:.3; pointer-events:none; }
+    .floor.current { opacity:1; }
+    .floor.cleared { opacity:.7; }
+    .floor-num { width:32px; display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:.65rem; font-weight:700; color:var(--muted); flex-shrink:0; }
+    .floor.current .floor-num { color:var(--gem); }
+    .floor.cleared .floor-num { color:var(--gold); }
+    .ftile { flex:1; aspect-ratio:2.5/1; border-radius:10px; background:var(--card); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; font-size:1.1rem; min-height:38px; }
+    .ftile:hover:not(.revealed) { border-color:var(--gem); background:rgba(0,245,160,.04); transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,245,160,.1); }
+    .ftile.revealed { cursor:default; }
+    .ftile.safe { background:rgba(0,245,160,.08); border-color:var(--gem); box-shadow:0 0 10px rgba(0,245,160,.15); }
+    .ftile.trap { background:rgba(255,59,92,.08); border-color:var(--mine); box-shadow:0 0 10px rgba(255,59,92,.15); }
+    .ftile.safe-show { background:rgba(0,245,160,.03); border-color:rgba(0,245,160,.15); opacity:.5; }
+    .ftile.trap-show { background:rgba(255,59,92,.03); border-color:rgba(255,59,92,.15); opacity:.5; }
+    .floor-mult { width:56px; display:flex; align-items:center; justify-content:center; font-family:'Orbitron',sans-serif; font-size:.62rem; font-weight:700; color:var(--muted); flex-shrink:0; }
+    .floor.current .floor-mult { color:var(--gem); }
+    .floor.cleared .floor-mult { color:var(--gold); }
+    .diff-grid { display:flex; gap:6px; }
+    .diff-btn { flex:1; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 4px; text-align:center; cursor:pointer; transition:all .15s; }
+    .diff-btn:hover { border-color:var(--gem); }
+    .diff-btn.active { border-color:var(--gem); color:var(--gem); background:rgba(0,245,160,.08); box-shadow:0 0 8px rgba(0,245,160,.15); }
+    .diff-btn .d-name { font-size:.78rem; font-weight:700; }
+    .diff-btn .d-info { font-size:.62rem; color:var(--muted); margin-top:2px; }
+    .tower-progress { width:100%; height:6px; border-radius:3px; background:var(--card); border:1px solid var(--border); overflow:hidden; }
+    .tower-progress-bar { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--gem),var(--gem2)); transition:width .4s ease; }
+    .tower-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:.72rem; }
+    .tower-stats > div { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 10px; text-align:center; }
+    .tower-stats .ts-lbl { font-size:.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .tower-stats .ts-val { font-family:'Orbitron',sans-serif; font-size:.85rem; font-weight:700; margin-top:2px; }
+    .hist-row { display:flex; gap:4px; flex-wrap:wrap; }
+    .hb { padding:3px 8px; border-radius:6px; font-family:'Orbitron',sans-serif; font-size:.62rem; font-weight:700; }
+    .hb.g { background:rgba(0,245,160,.1); color:var(--gem); }
+    .hb.r { background:rgba(255,59,92,.1); color:var(--mine); }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <a href="../index.html" class="nav-logo">SCATTER<span>X</span></a>
+  <div class="nav-links">
+    <a class="nav-link" href="mines.html"><span class="game-icon game-icon-sm game-icon-mines"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 7V3M15 5l2-2"/></svg></span> Mines</a>
+    <a class="nav-link" href="scatter.html"><span class="game-icon game-icon-sm game-icon-slots"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span> Slots</a>
+    <a class="nav-link" href="crash.html"><span class="game-icon game-icon-sm game-icon-crash"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L9 17h6L12 2z"/><path d="M9 17l-2 5M15 17l2 5"/><circle cx="12" cy="11" r="2"/></svg></span> Crash</a>
+    <a class="nav-link" href="plinko.html"><span class="game-icon game-icon-sm game-icon-plinko"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></span> Plinko</a>
+    <a class="nav-link" href="roulette.html"><span class="game-icon game-icon-sm game-icon-roulette"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span> Roulette</a>
+    <a class="nav-link" href="color.html"><span class="game-icon game-icon-sm game-icon-color"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ff3b5c"/><circle cx="15.5" cy="8.5" r="1.5" fill="#4a90e2"/><circle cx="8.5" cy="15.5" r="1.5" fill="#00f5a0"/><circle cx="15.5" cy="15.5" r="1.5" fill="#f5c842"/><circle cx="12" cy="12" r="1.5" fill="#9b7fd4"/></svg></span> Dice</a>
+    <a class="nav-link active" href="tower.html"><span class="game-icon game-icon-sm" style="background:linear-gradient(135deg,#f5c842,#ff6b00)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6M9 10h6M9 14h6M9 18h6"/></svg></span> Tower</a>
+  </div>
+  <button class="nav-hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></button>
+  <div class="nav-right">
+    <div class="nav-balance" onclick="openDepositModal()"><span class="bal-icon" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f5c842,#e8984a);border-radius:50%;font-size:.55rem;color:#06070d;font-weight:900">&#8369;</span><div><div class="bal-lbl">Balance</div><div class="bal-val">₱0.00</div></div></div>
+    <button class="nav-deposit-btn" onclick="openDepositModal()">+ DEPOSIT</button>
+  </div>
+</nav>
+<div class="mobile-menu">
+  <a class="nav-link" href="mines.html"><span class="game-icon game-icon-sm game-icon-mines"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 7V3M15 5l2-2"/></svg></span> Mines</a>
+  <a class="nav-link" href="scatter.html"><span class="game-icon game-icon-sm game-icon-slots"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span> Slots</a>
+  <a class="nav-link" href="crash.html"><span class="game-icon game-icon-sm game-icon-crash"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L9 17h6L12 2z"/><path d="M9 17l-2 5M15 17l2 5"/><circle cx="12" cy="11" r="2"/></svg></span> Crash</a>
+  <a class="nav-link" href="plinko.html"><span class="game-icon game-icon-sm game-icon-plinko"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></span> Plinko</a>
+  <a class="nav-link" href="roulette.html"><span class="game-icon game-icon-sm game-icon-roulette"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span> Roulette</a>
+  <a class="nav-link" href="color.html"><span class="game-icon game-icon-sm game-icon-color"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ff3b5c"/><circle cx="15.5" cy="8.5" r="1.5" fill="#4a90e2"/><circle cx="8.5" cy="15.5" r="1.5" fill="#00f5a0"/><circle cx="15.5" cy="15.5" r="1.5" fill="#f5c842"/><circle cx="12" cy="12" r="1.5" fill="#9b7fd4"/></svg></span> Dice</a>
+  <a class="nav-link active" href="tower.html"><span class="game-icon game-icon-sm" style="background:linear-gradient(135deg,#f5c842,#ff6b00)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6M9 10h6M9 14h6M9 18h6"/></svg></span> Tower</a>
+  <div class="mobile-actions">
+    <button class="btn-gcash" onclick="openDepositModal();toggleMobileMenu()">Cash In via GCash</button>
+    <button class="btn-gold" onclick="openDepositModal();setTimeout(()=>switchWalletTab('cashout'),100);toggleMobileMenu()">Cash Out</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <div class="game-layout">
+    <div class="side">
+      <div class="field-group">
+        <div class="field-label">Bet Amount (₱)</div>
+        <input type="number" class="field-input" id="betInput" value="10" min="1" />
+        <div class="bet-quick">
+          <button class="bq-btn" onclick="bq('h')">½</button>
+          <button class="bq-btn" onclick="bq('2')">2×</button>
+          <button class="bq-btn" onclick="bq('min')">Min</button>
+          <button class="bq-btn" onclick="bq('max')">Max</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Difficulty</div>
+        <div class="diff-grid" id="diffGrid"></div>
+      </div>
+      <div class="info-box">
+        <div class="i-lbl">Current Multiplier</div>
+        <div class="i-val" id="multVal">1.00×</div>
+        <div class="i-sub" id="profitVal">Potential: ₱0.00</div>
+      </div>
+      <div class="tower-progress"><div class="tower-progress-bar" id="progBar" style="width:0%"></div></div>
+      <button class="btn-primary" id="startBtn" onclick="startGame()">START CLIMB</button>
+      <button class="btn-gold" id="cashBtn" onclick="cashOut()" disabled>CASH OUT</button>
+
+      <div class="tower-stats">
+        <div><div class="ts-lbl">Games</div><div class="ts-val" style="color:var(--gem)" id="stGames">0</div></div>
+        <div><div class="ts-lbl">Wins</div><div class="ts-val" style="color:var(--gold)" id="stWins">0</div></div>
+        <div><div class="ts-lbl">Net P/L</div><div class="ts-val" id="stNet">₱0</div></div>
+        <div><div class="ts-lbl">Best Win</div><div class="ts-val" style="color:var(--gold)" id="stBest">₱0</div></div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">History</div>
+        <div class="hist-row" id="histRow"></div>
+      </div>
+    </div>
+
+    <div class="game-board">
+      <div class="board-status" id="status">Pick difficulty and start climbing!</div>
+      <div class="tower-wrap" id="tower"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlays -->
+<div class="overlay" id="ovWin">
+  <div class="overlay-box">
+    <div class="overlay-icon">🏆</div>
+    <div class="overlay-title win">CASHED OUT!</div>
+    <div class="overlay-amount win" id="ovWA">₱0</div>
+    <div class="overlay-sub" id="ovWS"></div>
+    <button class="btn-primary" style="margin-top:10px" onclick="closeOv()">PLAY AGAIN</button>
+  </div>
+</div>
+<div class="overlay" id="ovLose">
+  <div class="overlay-box">
+    <div class="overlay-icon">💥</div>
+    <div class="overlay-title lose">TRAPPED!</div>
+    <div class="overlay-amount lose" id="ovLA">-₱0</div>
+    <div class="overlay-sub" id="ovLS"></div>
+    <button class="btn-red" style="margin-top:10px" onclick="closeOv()">TRY AGAIN</button>
+  </div>
+</div>
+<div class="overlay" id="ovTop">
+  <div class="overlay-box">
+    <div class="overlay-icon">🎉</div>
+    <div class="overlay-title win" style="background:linear-gradient(135deg,#f5c842,#ff6b00);-webkit-background-clip:text;-webkit-text-fill-color:transparent">TOWER CLEARED!</div>
+    <div class="overlay-amount win" id="ovTA">₱0</div>
+    <div class="overlay-sub" id="ovTS">You reached the top!</div>
+    <button class="btn-primary" style="margin-top:10px" onclick="closeOv()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script src="../js/wallet.js"></script>
+<script src="../js/db.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+Wallet.init();
+updateAuthUI();
+
+const FLOORS = 10;
+const DIFFS = [
+  { name:'Easy', tiles:4, traps:1, edge:0.96, color:'var(--gem)' },
+  { name:'Medium', tiles:3, traps:1, edge:0.95, color:'var(--gold)' },
+  { name:'Hard', tiles:2, traps:1, edge:0.94, color:'var(--mine)' },
+];
+
+let diff = 1, gameOn=false, currentFloor=0, bet=0, floorData=[];
+const session = { games:0, wins:0, net:0, best:0 };
+const history = [];
+
+function floorMult(floor,d){
+  const safe = DIFFS[d].tiles - DIFFS[d].traps;
+  const total = DIFFS[d].tiles;
+  let m = 1;
+  for(let i=0;i<=floor;i++){
+    m *= (total/safe) * DIFFS[d].edge;
+  }
+  return Math.max(1, m);
+}
+
+function buildDiffGrid(){
+  const g = document.getElementById('diffGrid'); g.innerHTML='';
+  DIFFS.forEach((d,i)=>{
+    const div = document.createElement('div');
+    div.className = 'diff-btn'+(i===diff?' active':'');
+    div.innerHTML = `<div class="d-name" style="color:${d.color}">${d.name}</div><div class="d-info">${d.tiles} cols · ${d.traps} trap</div>`;
+    div.onclick = ()=>{ if(gameOn)return; diff=i; buildDiffGrid(); updateMult(); buildTower(); };
+    g.appendChild(div);
+  });
+}
+
+function buildTower(){
+  const tw = document.getElementById('tower'); tw.innerHTML='';
+  for(let f=FLOORS-1;f>=0;f--){
+    const row = document.createElement('div');
+    row.className = 'floor locked';
+    row.id = 'floor'+f;
+    const num = document.createElement('div');
+    num.className = 'floor-num';
+    num.textContent = f+1;
+    row.appendChild(num);
+    for(let t=0;t<DIFFS[diff].tiles;t++){
+      const tile = document.createElement('div');
+      tile.className = 'ftile';
+      tile.id = `ft${f}_${t}`;
+      tile.innerHTML = '<span style="opacity:.3">?</span>';
+      tile.onclick = ()=> pickTile(f,t);
+      row.appendChild(tile);
+    }
+    const mult = document.createElement('div');
+    mult.className = 'floor-mult';
+    mult.textContent = floorMult(f,diff).toFixed(2)+'×';
+    row.appendChild(mult);
+    tw.appendChild(row);
+  }
+}
+
+function generateFloors(){
+  floorData = [];
+  for(let f=0;f<FLOORS;f++){
+    const traps = new Set();
+    while(traps.size<DIFFS[diff].traps){
+      traps.add(Math.floor(Math.random()*DIFFS[diff].tiles));
+    }
+    floorData.push({traps});
+  }
+}
+
+function startGame(){
+  if(!requireLogin()) return;
+  bet = parseFloat(document.getElementById('betInput').value);
+  if(!bet||bet<=0){ shakeEl(document.getElementById('betInput')); return; }
+  if(!Wallet.subtract(bet)){ Toast.show('⚠️','Insufficient Balance','','error'); shakeEl(document.getElementById('betInput')); return; }
+  
+  gameOn=true; currentFloor=0;
+  generateFloors(); buildTower();
+  document.getElementById('startBtn').disabled=true;
+  document.getElementById('cashBtn').disabled=true;
+  document.getElementById('betInput').disabled=true;
+  document.getElementById('floor0').className='floor current';
+  document.getElementById('progBar').style.width='0%';
+  updateMult();
+  setStatus('🏗️ Pick a tile on Floor 1!','active');
+}
+
+function pickTile(floor,tile){
+  if(!gameOn || floor!==currentFloor) return;
+  
+  const fd = floorData[floor];
+  const el = document.getElementById(`ft${floor}_${tile}`);
+  
+  if(fd.traps.has(tile)){
+    // Hit trap!
+    el.className='ftile revealed trap';
+    el.innerHTML='💥';
+    SFX.play('mine');
+    revealFloor(floor);
+    gameOn=false;
+    session.games++; session.net-=bet;
+    addHistory(false,floor);
+    updateSessionUI();
+    document.getElementById('floor'+floor).className='floor current';
+    setStatus('💥 Trapped on Floor '+(floor+1)+'!','lost');
+    document.getElementById('ovLA').textContent='-'+Wallet.fmt(bet);
+    document.getElementById('ovLS').textContent=`Reached Floor ${floor+1} of ${FLOORS}`;
+    setTimeout(()=>{ revealAll(); document.getElementById('ovLose').classList.add('show'); },500);
+    setTimeout(resetControls, 600);
+  } else {
+    // Safe!
+    el.className='ftile revealed safe';
+    el.innerHTML='✅';
+    SFX.play('gem');
+    const c=elCenter(el); FX.burst(c.x,c.y,'#00f5a0');
+    revealFloor(floor);
+    document.getElementById('floor'+floor).className='floor cleared';
+    
+    currentFloor++;
+    document.getElementById('progBar').style.width=((currentFloor/FLOORS)*100)+'%';
+    document.getElementById('cashBtn').disabled=false;
+    updateMult();
+    
+    if(currentFloor>=FLOORS){
+      // Reached the top!
+      gameOn=false;
+      const m=floorMult(FLOORS-1,diff), w=bet*m;
+      Wallet.add(w);
+      session.games++; session.wins++; session.net+=w-bet; session.best=Math.max(session.best,w);
+      addHistory(true,FLOORS);
+      updateSessionUI();
+      FX.fireworks();
+      setStatus('🎉 Tower cleared!','won');
+      document.getElementById('ovTA').textContent='+'+Wallet.fmt(w);
+      document.getElementById('ovTS').textContent=floorMult(FLOORS-1,diff).toFixed(2)+'× on '+Wallet.fmt(bet);
+      setTimeout(()=>document.getElementById('ovTop').classList.add('show'),500);
+      setTimeout(resetControls,600);
+    } else {
+      document.getElementById('floor'+currentFloor).className='floor current';
+      setStatus('✅ Floor '+(floor+1)+' cleared! Pick on Floor '+(currentFloor+1)+' or cash out.','active');
+    }
+  }
+}
+
+function cashOut(){
+  if(!gameOn||currentFloor===0) return;
+  gameOn=false;
+  const m=floorMult(currentFloor-1,diff), w=bet*m;
+  Wallet.add(w);
+  SFX.play('win'); FX.fireworks();
+  session.games++; session.wins++; session.net+=w-bet; session.best=Math.max(session.best,w);
+  addHistory(true,currentFloor);
+  updateSessionUI();
+  revealAll();
+  setStatus('🏆 Cashed out at Floor '+currentFloor+'!','won');
+  document.getElementById('ovWA').textContent='+'+Wallet.fmt(w);
+  document.getElementById('ovWS').textContent=m.toFixed(2)+'× on '+Wallet.fmt(bet)+' · Floor '+currentFloor;
+  setTimeout(()=>document.getElementById('ovWin').classList.add('show'),400);
+  resetControls();
+}
+
+function revealFloor(f){
+  const fd=floorData[f];
+  for(let t=0;t<DIFFS[diff].tiles;t++){
+    const el=document.getElementById(`ft${f}_${t}`);
+    if(el.classList.contains('revealed'))continue;
+    if(fd.traps.has(t)){
+      el.className='ftile revealed trap-show';
+      el.innerHTML='<span style="opacity:.5">💥</span>';
+    } else {
+      el.className='ftile revealed safe-show';
+      el.innerHTML='<span style="opacity:.4">✅</span>';
+    }
+  }
+}
+
+function revealAll(){
+  for(let f=0;f<FLOORS;f++){
+    setTimeout(()=>revealFloor(f),f*60);
+  }
+}
+
+function resetControls(){
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('cashBtn').disabled=true;
+  document.getElementById('betInput').disabled=false;
+}
+
+function updateMult(){
+  const f=Math.max(0,currentFloor-1);
+  const m=currentFloor>0?floorMult(f,diff):1;
+  const next=floorMult(Math.min(currentFloor,FLOORS-1),diff);
+  document.getElementById('multVal').textContent=m.toFixed(2)+'×';
+  document.getElementById('profitVal').textContent=gameOn&&currentFloor>0?
+    `Cash out: ${Wallet.fmt(bet*m)} · Next: ${next.toFixed(2)}×`:
+    `Next floor: ${next.toFixed(2)}×`;
+}
+
+function updateSessionUI(){
+  document.getElementById('stGames').textContent=session.games;
+  document.getElementById('stWins').textContent=session.wins;
+  const netEl=document.getElementById('stNet');
+  netEl.textContent=(session.net>=0?'+':'')+Wallet.fmt(Math.abs(session.net));
+  netEl.style.color=session.net>=0?'var(--gem)':'var(--mine)';
+  document.getElementById('stBest').textContent=Wallet.fmt(session.best);
+}
+
+function addHistory(win,floor){
+  history.unshift({win,floor}); if(history.length>20)history.pop();
+  const row=document.getElementById('histRow');row.innerHTML='';
+  history.forEach(h=>{
+    const d=document.createElement('div');
+    d.className='hb '+(h.win?'g':'r');
+    d.textContent=h.win?'F'+h.floor:'💥F'+h.floor;
+    row.appendChild(d);
+  });
+}
+
+function setStatus(m,c=''){ const e=document.getElementById('status'); e.textContent=m; e.className='board-status '+c; }
+function closeOv(){ document.getElementById('ovWin').classList.remove('show'); document.getElementById('ovLose').classList.remove('show'); document.getElementById('ovTop').classList.remove('show'); }
+
+function bq(a){
+  if(gameOn)return;
+  const el=document.getElementById('betInput');let v=parseFloat(el.value)||10;
+  if(a==='h')v=Math.max(1,Math.floor(v/2));
+  else if(a==='2')v=Math.min(Wallet.get(),v*2);
+  else if(a==='min')v=1;
+  else if(a==='max')v=Wallet.get();
+  el.value=Math.round(v*100)/100;
+}
+
+buildDiffGrid(); buildTower();
+</script>
+</body>
+</html>
