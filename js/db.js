@@ -16,7 +16,7 @@
  * ============================================================ */
 
 const GITHUB_DB_CONFIG = {
-  GITHUB_TOKEN: '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',           // paste your NEW token here: 'ghp_xxxx...'
+  GITHUB_TOKEN: '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',           // paste your NEW token here: 'ghp_xxxx...'
   GITHUB_OWNER: 'Jjass45678',
   GITHUB_REPO: 'SCATTER-X',
   DATA_PATH: 'img',
@@ -388,4 +388,5 @@ const CloudDB = (() => {
 
 // Start on page load
 document.addEventListener('DOMContentLoaded', () => CloudDB.init());
+
 
