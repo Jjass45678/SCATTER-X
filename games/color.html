@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Color Dice — ScatterX</title>
+  <link rel="stylesheet" href="../css/shared.css" />
+  <style>
+    /* ── DICE SCENE ── */
+    .dice-stage{perspective:800px;display:flex;justify-content:center;align-items:center;gap:28px;padding:30px 10px;min-height:220px;position:relative}
+    .dice-container{display:flex;gap:28px;justify-content:center;align-items:center}
+    .dice-wrap{width:100px;height:100px;perspective:600px}
+    .dice-cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transform:rotateX(-20deg) rotateY(25deg)}
+    .dice-face{position:absolute;width:100px;height:100px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;font-family:'Orbitron',sans-serif;border:2px solid rgba(255,255,255,.15);box-shadow:inset 0 2px 8px rgba(255,255,255,.1),0 4px 20px rgba(0,0,0,.3)}
+    .dice-face.f-front {transform:translateZ(50px)}
+    .dice-face.f-back  {transform:rotateY(180deg) translateZ(50px)}
+    .dice-face.f-right {transform:rotateY(90deg) translateZ(50px)}
+    .dice-face.f-left  {transform:rotateY(-90deg) translateZ(50px)}
+    .dice-face.f-top   {transform:rotateX(90deg) translateZ(50px)}
+    .dice-face.f-bottom{transform:rotateX(-90deg) translateZ(50px)}
+
+    .face-red   {background:linear-gradient(135deg,#ff3b5c,#dc2040)}
+    .face-blue  {background:linear-gradient(135deg,#4a90e2,#2863b0)}
+    .face-green {background:linear-gradient(135deg,#00f5a0,#00b87a)}
+    .face-purple{background:linear-gradient(135deg,#9b7fd4,#6f4fb0)}
+    .face-gold  {background:linear-gradient(135deg,#f5c842,#e8984a)}
+    .face-white {background:linear-gradient(135deg,#e8e8e8,#bbb);color:#222!important}
+
+    .dice-shadow{width:80px;height:12px;background:rgba(0,0,0,.25);border-radius:50%;margin:10px auto 0;filter:blur(4px)}
+
+    /* ── COLOR PICKS ── */
+    .color-picks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+    .color-pick{border-radius:var(--radius-md);padding:12px 8px;text-align:center;cursor:pointer;border:2px solid transparent;transition:var(--transition);position:relative;overflow:hidden}
+    .color-pick:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
+    .color-pick.selected{border-color:#fff;box-shadow:0 0 20px rgba(255,255,255,.2)}
+    .color-pick.selected::after{content:'✓';position:absolute;top:4px;right:6px;font-size:.7rem;font-weight:900;color:#fff;background:rgba(0,0,0,.4);width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+    .color-pick .cp-name{font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;margin-bottom:2px}
+    .color-pick .cp-mult{font-size:.68rem;opacity:.7}
+    .color-pick .cp-prob{font-size:.58rem;opacity:.5;margin-top:1px}
+    .cp-red{background:linear-gradient(135deg,#ff3b5c,#dc2040)}.cp-red .cp-name,.cp-red .cp-mult,.cp-red .cp-prob{color:#fff}
+    .cp-blue{background:linear-gradient(135deg,#4a90e2,#2863b0)}.cp-blue .cp-name,.cp-blue .cp-mult,.cp-blue .cp-prob{color:#fff}
+    .cp-green{background:linear-gradient(135deg,#00f5a0,#00b87a)}.cp-green .cp-name,.cp-green .cp-mult,.cp-green .cp-prob{color:#06070d}
+    .cp-purple{background:linear-gradient(135deg,#9b7fd4,#6f4fb0)}.cp-purple .cp-name,.cp-purple .cp-mult,.cp-purple .cp-prob{color:#fff}
+    .cp-gold{background:linear-gradient(135deg,#f5c842,#e8984a)}.cp-gold .cp-name,.cp-gold .cp-mult,.cp-gold .cp-prob{color:#06070d}
+    .cp-white{background:linear-gradient(135deg,#e8e8e8,#bbb)}.cp-white .cp-name,.cp-white .cp-mult,.cp-white .cp-prob{color:#111}
+
+    /* ── MULTI BET ── */
+    .multi-bet-toggle{display:flex;gap:6px;margin:10px 0 6px}
+    .mbt-btn{flex:1;padding:8px 6px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text2);transition:var(--transition);font-family:'Orbitron',sans-serif}
+    .mbt-btn.active{background:linear-gradient(135deg,var(--gem),var(--gem2));color:#06070d;border-color:transparent;box-shadow:var(--glow-gem)}
+    .mbt-btn:hover:not(.active){border-color:var(--gem);color:var(--gem)}
+
+    /* ── RESULT ── */
+    .result-display{text-align:center;margin:8px 0;font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:700;min-height:30px;transition:color .2s}
+
+    /* ── STATS BAR ── */
+    .dice-stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0 12px}
+    .ds-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;text-align:center;min-width:70px}
+    .ds-label{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .ds-value{font-family:'Orbitron',sans-serif;font-size:.82rem;font-weight:700;color:var(--gold)}
+
+    /* ── STREAK ── */
+    .streak-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;margin:8px 0;transition:var(--transition)}
+    .streak-bar.hot{background:linear-gradient(135deg,rgba(245,200,66,.1),rgba(255,59,92,.08));border:1px solid rgba(245,200,66,.2)}
+    .streak-bar.cold{background:rgba(255,255,255,.02);border:1px solid var(--border)}
+    .streak-icon{font-size:1.2rem}
+    .streak-text{font-size:.75rem;font-weight:600;color:var(--text)}
+    .streak-bonus{font-size:.68rem;font-weight:700;color:var(--gold);margin-left:auto;font-family:'Orbitron',sans-serif}
+
+    /* ── HISTORY ── */
+    .hist-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+    .hist-dot{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;transition:transform .2s}
+    .hist-dot:hover{transform:scale(1.2)}
+    .hd-red{background:#ff3b5c;color:#fff}.hd-blue{background:#4a90e2;color:#fff}.hd-green{background:#00f5a0;color:#111}.hd-purple{background:#9b7fd4;color:#fff}.hd-gold{background:#f5c842;color:#111}.hd-white{background:#e8e8e8;color:#333}
+
+    /* ── AUTO PLAY ── */
+    .auto-controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;margin-top:8px}
+    .auto-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .auto-row:last-child{margin-bottom:0}
+    .auto-label{font-size:.68rem;color:var(--text2);min-width:80px}
+    .auto-input{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:.75rem;outline:none}
+    .auto-input:focus{border-color:var(--gem)}
+
+    /* ── PROVABLY FAIR ── */
+    .fair-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.12);border-radius:999px;padding:4px 12px;font-size:.62rem;color:var(--gem);font-weight:600;letter-spacing:.5px;margin-top:8px;cursor:pointer}
+    .fair-badge:hover{background:rgba(0,245,160,.1)}
+    .fair-popup{display:none;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-top:6px;font-size:.72rem;color:var(--text2);line-height:1.6}
+    .fair-popup.open{display:block}
+
+    @media(max-width:640px){
+      .dice-stage{gap:16px;min-height:180px}
+      .dice-container{gap:16px}
+      .dice-wrap{width:76px;height:76px}
+      .dice-face{width:76px;height:76px;border-radius:10px;font-size:1.5rem}
+      .dice-face.f-front {transform:translateZ(38px)}
+      .dice-face.f-back  {transform:rotateY(180deg) translateZ(38px)}
+      .dice-face.f-right {transform:rotateY(90deg) translateZ(38px)}
+      .dice-face.f-left  {transform:rotateY(-90deg) translateZ(38px)}
+      .dice-face.f-top   {transform:rotateX(90deg) translateZ(38px)}
+      .dice-face.f-bottom{transform:rotateX(-90deg) translateZ(38px)}
+      .color-picks{grid-template-columns:repeat(2,1fr)}
+      .dice-stats{gap:4px}
+      .ds-item{min-width:55px;padding:4px 8px}
+    }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <a href="../index.html" class="nav-logo">SCATTER<span>X</span></a>
+  <div class="nav-links">
+    <a class="nav-link" href="mines.html"><span class="game-icon game-icon-sm game-icon-mines"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 7V3M15 5l2-2"/></svg></span> Mines</a>
+    <a class="nav-link" href="scatter.html"><span class="game-icon game-icon-sm game-icon-slots"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span> Slots</a>
+    <a class="nav-link" href="crash.html"><span class="game-icon game-icon-sm game-icon-crash"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L9 17h6L12 2z"/><path d="M9 17l-2 5M15 17l2 5"/><circle cx="12" cy="11" r="2"/></svg></span> Crash</a>
+    <a class="nav-link" href="plinko.html"><span class="game-icon game-icon-sm game-icon-plinko"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></span> Plinko</a>
+    <a class="nav-link" href="roulette.html"><span class="game-icon game-icon-sm game-icon-roulette"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span> Roulette</a>
+    <a class="nav-link active" href="color.html"><span class="game-icon game-icon-sm game-icon-color"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ff3b5c"/><circle cx="15.5" cy="8.5" r="1.5" fill="#4a90e2"/><circle cx="8.5" cy="15.5" r="1.5" fill="#00f5a0"/><circle cx="15.5" cy="15.5" r="1.5" fill="#f5c842"/><circle cx="12" cy="12" r="1.5" fill="#9b7fd4"/></svg></span> Dice</a>
+    <a class="nav-link" href="tower.html"><span class="game-icon game-icon-sm" style="background:linear-gradient(135deg,#f5c842,#ff6b00)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6M9 10h6M9 14h6M9 18h6"/></svg></span> Tower</a>
+  </div>
+  <button class="nav-hamburger" onclick="toggleMobileMenu()"><span></span><span></span><span></span></button>
+  <div class="nav-right">
+    <div class="nav-balance" onclick="openDepositModal()"><span class="bal-icon" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f5c842,#e8984a);border-radius:50%;font-size:.55rem;color:#06070d;font-weight:900">&#8369;</span><div><div class="bal-lbl">Balance</div><div class="bal-val">&#8369;0.00</div></div></div>
+    <button class="nav-deposit-btn" onclick="openDepositModal()">+ DEPOSIT</button>
+  </div>
+</nav>
+<div class="mobile-menu">
+  <a class="nav-link" href="mines.html"><span class="game-icon game-icon-sm game-icon-mines"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="14" r="7"/><path d="M12 7V3M15 5l2-2"/></svg></span> Mines</a>
+  <a class="nav-link" href="scatter.html"><span class="game-icon game-icon-sm game-icon-slots"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span> Slots</a>
+  <a class="nav-link" href="crash.html"><span class="game-icon game-icon-sm game-icon-crash"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L9 17h6L12 2z"/><path d="M9 17l-2 5M15 17l2 5"/><circle cx="12" cy="11" r="2"/></svg></span> Crash</a>
+  <a class="nav-link" href="plinko.html"><span class="game-icon game-icon-sm game-icon-plinko"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></span> Plinko</a>
+  <a class="nav-link" href="roulette.html"><span class="game-icon game-icon-sm game-icon-roulette"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></span> Roulette</a>
+  <a class="nav-link active" href="color.html"><span class="game-icon game-icon-sm game-icon-color"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ff3b5c"/><circle cx="15.5" cy="8.5" r="1.5" fill="#4a90e2"/><circle cx="8.5" cy="15.5" r="1.5" fill="#00f5a0"/><circle cx="15.5" cy="15.5" r="1.5" fill="#f5c842"/><circle cx="12" cy="12" r="1.5" fill="#9b7fd4"/></svg></span> Dice</a>
+  <a class="nav-link" href="tower.html"><span class="game-icon game-icon-sm" style="background:linear-gradient(135deg,#f5c842,#ff6b00)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 6h6M9 10h6M9 14h6M9 18h6"/></svg></span> Tower</a>
+  <div class="mobile-actions">
+    <button class="btn-gcash" onclick="openDepositModal();toggleMobileMenu()">Cash In via GCash</button>
+    <button class="btn-gold" onclick="openDepositModal();setTimeout(()=>switchWalletTab('cashout'),100);toggleMobileMenu()">Cash Out</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <div class="game-layout">
+    <!-- SIDE PANEL -->
+    <div class="side">
+      <div class="field-group">
+        <div class="field-label">Bet Amount (&#8369;)</div>
+        <input type="number" class="field-input" id="betInp" value="10" min="1" />
+        <div class="bet-quick">
+          <button class="bq-btn" onclick="bq('h')">&#189;</button>
+          <button class="bq-btn" onclick="bq('2')">2&#215;</button>
+          <button class="bq-btn" onclick="bq('min')">Min</button>
+          <button class="bq-btn" onclick="bq('max')">Max</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Bet Mode</div>
+        <div class="multi-bet-toggle">
+          <button class="mbt-btn active" onclick="setMode('single')" id="modeSingle">Single</button>
+          <button class="mbt-btn" onclick="setMode('multi')" id="modeMulti">Multi</button>
+          <button class="mbt-btn" onclick="setMode('dice3')" id="modeDice3">3 Dice</button>
+        </div>
+        <div style="font-size:.62rem;color:var(--muted);margin-top:4px" id="modeDesc">Pick 1 color. 1 die rolls.</div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Pick Color(s)</div>
+        <div class="color-picks" id="colorPicks">
+          <div class="color-pick cp-red" onclick="pick('red')" data-color="red"><div class="cp-name">RED</div><div class="cp-mult">2&#215;</div><div class="cp-prob">30%</div></div>
+          <div class="color-pick cp-blue" onclick="pick('blue')" data-color="blue"><div class="cp-name">BLUE</div><div class="cp-mult">2&#215;</div><div class="cp-prob">30%</div></div>
+          <div class="color-pick cp-green" onclick="pick('green')" data-color="green"><div class="cp-name">GREEN</div><div class="cp-mult">3&#215;</div><div class="cp-prob">20%</div></div>
+          <div class="color-pick cp-purple" onclick="pick('purple')" data-color="purple"><div class="cp-name">PURPLE</div><div class="cp-mult">5&#215;</div><div class="cp-prob">12%</div></div>
+          <div class="color-pick cp-gold" onclick="pick('gold')" data-color="gold"><div class="cp-name">GOLD</div><div class="cp-mult">10&#215;</div><div class="cp-prob">6%</div></div>
+          <div class="color-pick cp-white" onclick="pick('white')" data-color="white"><div class="cp-name">WHITE</div><div class="cp-mult">50&#215;</div><div class="cp-prob">2%</div></div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="rollBtn" onclick="roll()">&#x1F3B2; ROLL DICE</button>
+
+      <div class="streak-bar cold" id="streakBar">
+        <div class="streak-icon">&#x1F525;</div>
+        <div class="streak-text" id="streakText">Win Streak: 0</div>
+        <div class="streak-bonus" id="streakBonus"></div>
+      </div>
+
+      <details style="margin-top:6px">
+        <summary style="font-size:.72rem;color:var(--text2);cursor:pointer;font-weight:600">&#x26A1; Auto Play</summary>
+        <div class="auto-controls">
+          <div class="auto-row">
+            <span class="auto-label">Rounds</span>
+            <input type="number" class="auto-input" id="autoRounds" value="10" min="1" max="100" />
+          </div>
+          <div class="auto-row">
+            <span class="auto-label">Stop profit</span>
+            <input type="number" class="auto-input" id="autoProfit" placeholder="0 = no limit" value="0" />
+          </div>
+          <div class="auto-row">
+            <span class="auto-label">Stop loss</span>
+            <input type="number" class="auto-input" id="autoLoss" placeholder="0 = no limit" value="0" />
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn-primary" id="autoStartBtn" onclick="startAuto()" style="flex:1;padding:8px;font-size:.72rem">&#x25B6; START</button>
+            <button class="btn-red" id="autoStopBtn" onclick="stopAuto()" style="flex:1;padding:8px;font-size:.72rem" disabled>&#x23F9; STOP</button>
+          </div>
+        </div>
+      </details>
+
+      <div class="field-group" style="margin-top:8px">
+        <div class="field-label">Roll History</div>
+        <div class="hist-row" id="histRow"></div>
+      </div>
+    </div>
+
+    <!-- GAME BOARD -->
+    <div class="game-board">
+      <div class="result-display" id="resultDisp" style="color:var(--muted)">Pick a color and roll! &#x1F3B2;</div>
+
+      <div class="dice-stage" id="diceStage">
+        <div class="dice-container" id="diceContainer"></div>
+      </div>
+
+      <div class="dice-stats">
+        <div class="ds-item"><div class="ds-label">Rolls</div><div class="ds-value" id="statRolls">0</div></div>
+        <div class="ds-item"><div class="ds-label">Wins</div><div class="ds-value" id="statWins">0</div></div>
+        <div class="ds-item"><div class="ds-label">Win Rate</div><div class="ds-value" id="statRate">0%</div></div>
+        <div class="ds-item"><div class="ds-label">Net P/L</div><div class="ds-value" id="statPL" style="color:var(--text2)">&#8369;0</div></div>
+        <div class="ds-item"><div class="ds-label">Best Win</div><div class="ds-value" id="statBest">&#8369;0</div></div>
+      </div>
+
+      <div class="board-status" id="status">Select your color and place your bet!</div>
+
+      <div style="text-align:center">
+        <div class="fair-badge" onclick="toggleFair()">&#x1F512; Provably Fair <span style="font-size:.5rem;opacity:.7">&#x25BC;</span></div>
+        <div class="fair-popup" id="fairPopup">
+          <strong>How it works:</strong><br>
+          Each roll uses a weighted random algorithm. Colors have fixed probabilities:
+          Red 30%, Blue 30%, Green 20%, Purple 12%, Gold 6%, White 2%.
+          Results are determined before the animation plays. The house edge is transparent.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div class="overlay" id="ovWin">
+  <div class="overlay-box">
+    <div class="overlay-icon"><svg viewBox="0 0 48 48" width="56" height="56"><circle cx="24" cy="24" r="20" fill="#f5c842" opacity=".15"/><path d="M24 8l4 12h12l-10 7 4 13-10-8-10 8 4-13-10-7h12z" fill="#f5c842" stroke="#f5c842" stroke-width="1"/></svg></div>
+    <div class="overlay-title win">YOU WON!</div>
+    <div class="overlay-amount win" id="ovWA">&#8369;0</div>
+    <div class="overlay-sub" id="ovWS"></div>
+    <button class="btn-primary" style="margin-top:10px" onclick="closeOv()">ROLL AGAIN &#x1F3B2;</button>
+  </div>
+</div>
+<!-- LOSE OVERLAY -->
+<div class="overlay" id="ovLose">
+  <div class="overlay-box">
+    <div class="overlay-icon"><svg viewBox="0 0 48 48" width="56" height="56"><circle cx="24" cy="24" r="20" fill="#ff3b5c" opacity=".15"/><line x1="16" y1="16" x2="32" y2="32" stroke="#ff3b5c" stroke-width="3" stroke-linecap="round"/><line x1="32" y1="16" x2="16" y2="32" stroke="#ff3b5c" stroke-width="3" stroke-linecap="round"/></svg></div>
+    <div class="overlay-title lose">WRONG COLOR!</div>
+    <div class="overlay-amount lose" id="ovLA">-&#8369;0</div>
+    <div class="overlay-sub" id="ovLS"></div>
+    <button class="btn-red" style="margin-top:10px" onclick="closeOv()">TRY AGAIN &#x1F3B2;</button>
+  </div>
+</div>
+
+<script src="../js/wallet.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+Wallet.init();
+updateAuthUI();
+
+/* ═══════════════════════════════════════════
+   COLOR DICE — GAME ENGINE
+   ═══════════════════════════════════════════ */
+
+const COLORS = [
+  { name:'red',    color:'#ff3b5c', mult:2,  weight:30, face:'face-red'    },
+  { name:'blue',   color:'#4a90e2', mult:2,  weight:30, face:'face-blue'   },
+  { name:'green',  color:'#00f5a0', mult:3,  weight:20, face:'face-green'  },
+  { name:'purple', color:'#9b7fd4', mult:5,  weight:12, face:'face-purple' },
+  { name:'gold',   color:'#f5c842', mult:10, weight:6,  face:'face-gold'   },
+  { name:'white',  color:'#e8e8e8', mult:50, weight:2,  face:'face-white'  }
+];
+
+const TOTAL_WEIGHT = COLORS.reduce((s, c) => s + c.weight, 0);
+const FACE_NAMES = ['front','back','right','left','top','bottom'];
+
+// Rotation needed to expose a given face to the viewer
+const FACE_SHOW = {
+  front:  'rotateX(0deg) rotateY(0deg)',
+  back:   'rotateX(0deg) rotateY(180deg)',
+  right:  'rotateX(0deg) rotateY(-90deg)',
+  left:   'rotateX(0deg) rotateY(90deg)',
+  top:    'rotateX(-90deg) rotateY(0deg)',
+  bottom: 'rotateX(90deg) rotateY(0deg)'
+};
+
+let selectedColors = [];
+let rolling = false;
+let mode = 'single';
+let history = [];
+let stats = { rolls:0, wins:0, netPL:0, best:0 };
+let streak = 0;
+let autoPlaying = false;
+let autoState = { remaining:0, profit:0 };
+
+function getColorEmoji(name) {
+  return { red:'\u{1F534}', blue:'\u{1F535}', green:'\u{1F7E2}', purple:'\u{1F7E3}', gold:'\u2B50', white:'\u26AA' }[name] || '\u{1F3AF}';
+}
+
+/* ── Build 3D dice ── */
+function buildDice(count) {
+  const container = document.getElementById('diceContainer');
+  container.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const faceColors = FACE_NAMES.map(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
+    const wrap = document.createElement('div');
+    wrap.className = 'dice-wrap';
+    wrap.innerHTML =
+      '<div class="dice-cube" id="dice' + i + '">' +
+      FACE_NAMES.map(function(f, j) {
+        return '<div class="dice-face f-' + f + ' ' + faceColors[j].face + '">' + getColorEmoji(faceColors[j].name) + '</div>';
+      }).join('') +
+      '</div><div class="dice-shadow"></div>';
+    container.appendChild(wrap);
+  }
+}
+
+function getDiceCount() { return mode === 'dice3' ? 3 : 1; }
+
+buildDice(1);
+
+/* ── Mode switching ── */
+function setMode(m) {
+  if (rolling) return;
+  mode = m;
+  selectedColors = [];
+  document.querySelectorAll('.color-pick').forEach(function(e) { e.classList.remove('selected'); });
+  document.querySelectorAll('.mbt-btn').forEach(function(b) { b.classList.remove('active'); });
+  var capId = 'mode' + m.charAt(0).toUpperCase() + m.slice(1);
+  document.getElementById(capId).classList.add('active');
+
+  var descs = { single:'Pick 1 color. 1 die rolls.', multi:'Pick up to 3 colors. Bet splits equally.', dice3:'Pick 1 color. 3 dice roll. More matches = bigger wins!' };
+  document.getElementById('modeDesc').textContent = descs[m];
+
+  if (m === 'dice3') {
+    document.querySelectorAll('.color-pick').forEach(function(el) {
+      var c = el.getAttribute('data-color');
+      var col = COLORS.find(function(x) { return x.name === c; });
+      el.querySelector('.cp-mult').textContent = '1x / ' + col.mult + 'x / ' + (col.mult * 3) + 'x';
+    });
+  } else {
+    document.querySelectorAll('.color-pick').forEach(function(el) {
+      var c = el.getAttribute('data-color');
+      var col = COLORS.find(function(x) { return x.name === c; });
+      el.querySelector('.cp-mult').textContent = col.mult + '\u00d7';
+    });
+  }
+  buildDice(getDiceCount());
+}
+
+/* ── Color pick ── */
+function pick(c) {
+  if (rolling) return;
+  if (mode === 'single' || mode === 'dice3') {
+    selectedColors = [c];
+    document.querySelectorAll('.color-pick').forEach(function(e) { e.classList.remove('selected'); });
+    document.querySelector('[data-color="' + c + '"]').classList.add('selected');
+  } else {
+    var idx = selectedColors.indexOf(c);
+    if (idx > -1) {
+      selectedColors.splice(idx, 1);
+      document.querySelector('[data-color="' + c + '"]').classList.remove('selected');
+    } else {
+      if (selectedColors.length >= 3) { Toast.show('!', 'Max 3 colors', 'Remove a color first', 'error'); return; }
+      selectedColors.push(c);
+      document.querySelector('[data-color="' + c + '"]').classList.add('selected');
+    }
+  }
+  var names = selectedColors.map(function(s) { return s.toUpperCase(); }).join(', ');
+  document.getElementById('resultDisp').textContent = names + ' selected';
+  document.getElementById('resultDisp').style.color = selectedColors.length === 1
+    ? COLORS.find(function(x) { return x.name === selectedColors[0]; }).color
+    : 'var(--gold)';
+}
+
+/* ── Weighted RNG ── */
+function rollColor() {
+  var rand = Math.random() * TOTAL_WEIGHT;
+  for (var i = 0; i < COLORS.length; i++) {
+    rand -= COLORS[i].weight;
+    if (rand <= 0) return COLORS[i];
+  }
+  return COLORS[0];
+}
+
+/* ══════════ MAIN ROLL ══════════ */
+function roll() {
+  if (!requireLogin()) return;
+  if (rolling) return;
+  if (!selectedColors.length) { Toast.show('\u{1F3B2}', 'Pick a color first', '', 'error'); return; }
+
+  var betAmt = parseFloat(document.getElementById('betInp').value);
+  if (!betAmt || betAmt <= 0) { shakeEl(document.getElementById('betInp')); return; }
+  if (!Wallet.subtract(betAmt)) { Toast.show('!', 'Insufficient Balance', '', 'error'); shakeEl(document.getElementById('betInp')); return; }
+
+  rolling = true;
+  document.getElementById('rollBtn').disabled = true;
+  document.getElementById('resultDisp').textContent = 'Rolling\u2026';
+  document.getElementById('resultDisp').style.color = 'var(--gold)';
+  SFX.play('click');
+
+  var diceCount = getDiceCount();
+  var results = [];
+  for (var d = 0; d < diceCount; d++) results.push(rollColor());
+
+  // Animate dice
+  var diceEls = document.querySelectorAll('.dice-cube');
+  diceEls.forEach(function(die, i) {
+    var result = results[i];
+    var targetFace = Math.floor(Math.random() * 6);
+
+    FACE_NAMES.forEach(function(f, j) {
+      var faceEl = die.querySelector('.f-' + f);
+      var col = (j === targetFace) ? result : COLORS[Math.floor(Math.random() * COLORS.length)];
+      faceEl.className = 'dice-face f-' + f + ' ' + col.face;
+      faceEl.textContent = getColorEmoji(col.name);
+    });
+
+    var finalRot = FACE_SHOW[FACE_NAMES[targetFace]];
+    var spins = 3 + Math.floor(Math.random() * 2);
+    die.style.transition = 'none';
+    die.style.transform = 'rotateX(0) rotateY(0) rotateZ(0)';
+
+    requestAnimationFrame(function() {
+      die.style.transition = 'transform 2s cubic-bezier(.2,1,.3,1)';
+      die.style.transform = 'rotateX(' + (spins * 360) + 'deg) rotateY(' + (spins * 360) + 'deg) ' + finalRot;
+    });
+  });
+
+  setTimeout(function() { onResult(results, betAmt); }, 2200);
+}
+
+/* ── Result handler ── */
+function onResult(results, betAmt) {
+  rolling = false;
+  document.getElementById('rollBtn').disabled = false;
+  stats.rolls++;
+
+  var totalWin = 0, matchCount = 0;
+
+  if (mode === 'dice3') {
+    var picked = selectedColors[0];
+    matchCount = results.filter(function(r) { return r.name === picked; }).length;
+    var col = COLORS.find(function(c) { return c.name === picked; });
+    if (matchCount === 1) totalWin = betAmt * 1;
+    else if (matchCount === 2) totalWin = betAmt * col.mult;
+    else if (matchCount === 3) totalWin = betAmt * col.mult * 3;
+  } else if (mode === 'multi') {
+    var perColor = betAmt / selectedColors.length;
+    selectedColors.forEach(function(sc) {
+      if (results[0].name === sc) {
+        var col2 = COLORS.find(function(c) { return c.name === sc; });
+        totalWin += perColor * col2.mult;
+      }
+    });
+  } else {
+    if (results[0].name === selectedColors[0]) {
+      var col3 = COLORS.find(function(c) { return c.name === selectedColors[0]; });
+      totalWin = betAmt * col3.mult;
+    }
+  }
+
+  var won = totalWin > 0;
+  if (won) {
+    streak++;
+    if (streak >= 3) {
+      var bonusPct = Math.min((streak - 2) * 5, 25);
+      totalWin += totalWin * (bonusPct / 100);
+    }
+  } else { streak = 0; }
+  updateStreak();
+
+  results.forEach(function(r) { history.unshift(r); });
+  if (history.length > 30) history = history.slice(0, 30);
+  renderHist();
+
+  var resultNames = results.map(function(r) { return r.name.toUpperCase(); }).join(' + ');
+  document.getElementById('resultDisp').textContent = '\u{1F3B2} ' + resultNames;
+  document.getElementById('resultDisp').style.color = results.length === 1 ? results[0].color : 'var(--gold)';
+
+  if (won) {
+    stats.wins++;
+    stats.netPL += (totalWin - betAmt);
+    if (totalWin > stats.best) stats.best = totalWin;
+    Wallet.add(totalWin);
+    SFX.play('win');
+    if (totalWin >= betAmt * 5) FX.fireworks();
+    document.getElementById('ovWA').textContent = '+' + Wallet.fmt(totalWin);
+    var sub = '';
+    if (mode === 'dice3') sub = matchCount + '/3 matched! ' + resultNames;
+    else sub = results[0].mult + 'x on ' + Wallet.fmt(betAmt);
+    if (streak >= 3) sub += ' \u{1F525} Streak x' + streak + ' bonus!';
+    document.getElementById('ovWS').textContent = sub;
+    if (!autoPlaying) setTimeout(function() { document.getElementById('ovWin').classList.add('show'); }, 300);
+    document.getElementById('status').textContent = 'Won ' + Wallet.fmt(totalWin) + '! \u{1F389}';
+    document.getElementById('status').className = 'board-status won';
+  } else {
+    stats.netPL -= betAmt;
+    SFX.play('crash');
+    document.getElementById('ovLA').textContent = '-' + Wallet.fmt(betAmt);
+    document.getElementById('ovLS').textContent = 'Landed: ' + resultNames + ' \u2014 You picked: ' + selectedColors.map(function(s) { return s.toUpperCase(); }).join(', ');
+    if (!autoPlaying) setTimeout(function() { document.getElementById('ovLose').classList.add('show'); }, 300);
+    document.getElementById('status').textContent = 'Landed on ' + resultNames;
+    document.getElementById('status').className = 'board-status lost';
+  }
+
+  updateStats();
+
+  if (autoPlaying) {
+    autoState.remaining--;
+    autoState.profit += (won ? (totalWin - betAmt) : -betAmt);
+    var sp = parseFloat(document.getElementById('autoProfit').value) || 0;
+    var sl = parseFloat(document.getElementById('autoLoss').value) || 0;
+    if (autoState.remaining <= 0 || (sp > 0 && autoState.profit >= sp) || (sl > 0 && autoState.profit <= -sl)) { stopAuto(); return; }
+    setTimeout(function() { if (autoPlaying) roll(); }, 1200);
+  }
+}
+
+/* ── Streak ── */
+function updateStreak() {
+  var bar = document.getElementById('streakBar');
+  document.getElementById('streakText').textContent = 'Win Streak: ' + streak;
+  if (streak >= 3) {
+    bar.className = 'streak-bar hot';
+    document.getElementById('streakBonus').textContent = '+' + Math.min((streak - 2) * 5, 25) + '% bonus!';
+    bar.querySelector('.streak-icon').textContent = streak >= 5 ? '\u{1F525}\u{1F525}' : '\u{1F525}';
+  } else {
+    bar.className = 'streak-bar cold';
+    document.getElementById('streakBonus').textContent = '';
+    bar.querySelector('.streak-icon').textContent = '\u{1F525}';
+  }
+}
+
+/* ── Stats ── */
+function updateStats() {
+  document.getElementById('statRolls').textContent = stats.rolls;
+  document.getElementById('statWins').textContent = stats.wins;
+  document.getElementById('statRate').textContent = stats.rolls ? Math.round(stats.wins / stats.rolls * 100) + '%' : '0%';
+  var plEl = document.getElementById('statPL');
+  plEl.textContent = (stats.netPL >= 0 ? '+' : '') + '\u20B1' + Math.abs(stats.netPL).toFixed(2);
+  plEl.style.color = stats.netPL >= 0 ? '#38ef7d' : '#ff5252';
+  document.getElementById('statBest').textContent = '\u20B1' + stats.best.toFixed(2);
+}
+
+/* ── History ── */
+function renderHist() {
+  var r = document.getElementById('histRow');
+  r.innerHTML = '';
+  history.slice(0, 20).forEach(function(h) {
+    var d = document.createElement('div');
+    d.className = 'hist-dot hd-' + h.name;
+    d.textContent = h.name.charAt(0).toUpperCase();
+    d.title = h.name + ' (' + h.mult + 'x)';
+    r.appendChild(d);
+  });
+}
+
+/* ── Auto Play ── */
+function startAuto() {
+  if (rolling || autoPlaying) return;
+  if (!selectedColors.length) { Toast.show('\u{1F3B2}', 'Pick a color first', '', 'error'); return; }
+  autoPlaying = true;
+  autoState = { remaining: parseInt(document.getElementById('autoRounds').value) || 10, profit: 0 };
+  document.getElementById('autoStartBtn').disabled = true;
+  document.getElementById('autoStopBtn').disabled = false;
+  roll();
+}
+function stopAuto() {
+  autoPlaying = false;
+  document.getElementById('autoStartBtn').disabled = false;
+  document.getElementById('autoStopBtn').disabled = true;
+  var ps = autoState.profit >= 0 ? '+\u20B1' + autoState.profit.toFixed(2) : '-\u20B1' + Math.abs(autoState.profit).toFixed(2);
+  Toast.show('\u23F9', 'Auto Play Stopped', 'Net: ' + ps, autoState.profit >= 0 ? 'success' : 'error');
+}
+
+/* ── Bet Quick ── */
+function bq(a) {
+  if (rolling) return;
+  var el = document.getElementById('betInp'), v = parseFloat(el.value) || 10;
+  if (a === 'h') v = Math.max(1, Math.floor(v / 2));
+  else if (a === '2') v = Math.min(Wallet.get(), v * 2);
+  else if (a === 'min') v = 1;
+  else if (a === 'max') v = Wallet.get();
+  el.value = Math.round(v * 100) / 100;
+}
+
+function closeOv() { document.getElementById('ovWin').classList.remove('show'); document.getElementById('ovLose').classList.remove('show'); }
+function toggleFair() { document.getElementById('fairPopup').classList.toggle('open'); }
+</script>
+</body>
+</html>
