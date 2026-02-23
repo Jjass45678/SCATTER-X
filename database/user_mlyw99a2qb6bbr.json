@@ -212,5 +212,8 @@
     "notifications": true,
     "balanceMode": "real"
   },
-  "lastSync": "2026-02-23T11:27:00.457Z"
+  "blocked": false,
+  "blockedAt": null,
+  "blockReason": null,
+  "lastSync": "2026-02-23T11:27:07.932Z"
 }
